@@ -110,15 +110,24 @@ def evaluate_board(board, player, max_unplaced, min_unplaced):
     for point in max_arr:
         # Evaluate connections for maximizing player
         connection = connections[points.index(point)]
+        can_move = False
+        
         for conn in connection:
-            if conn != point and board[conn] is None:
-                # Give more points for longer open connections
-                score += movement_weight
+            if board[conn] is None:
+                # If the piece has nighbouring possible move
+                can_move = True
+            
+                if conn != point:
+                    # Give more points for longer open connections
+                    score += movement_weight
             
             # If a mill is possible in the next move for the maximizing player
             if max_unplaced == 0 and max_pieces > 3 and is_mills(board, True, conn):
                 if conn not in future_max_mills and any(board[neighbour] == "Player1" and is_mills(board, True, neighbour) for neighbour in connections[points.index(conn)]):
                     future_max_mills.append(conn)   
+        
+        if not can_move:
+            score -= 20
                 
         # If a piece is preventing a mill, give additional points
         for mill in mills:
@@ -162,15 +171,23 @@ def evaluate_board(board, player, max_unplaced, min_unplaced):
         # Evaluate connections for minimizing player
         connection = connections[points.index(point)]
         for conn in connection:
-            if conn != point and board[conn] is None:
-                # Give more points for longer open connections
-                score -= movement_weight
+            can_move = False
+            
+            if board[conn] is None:
+                can_move = True
+                
+                if conn != point:
+                    # Give more points for longer open connections
+                    score -= movement_weight
                 
             # If a mill is possible in the next move for the minimizing player
             if min_unplaced == 0 and min_pieces > 3 and is_mills(board, False, conn):
                 if conn not in future_min_mills and any(board[neighbour] == "Player2" and is_mills(board, False, neighbour) for neighbour in connections[points.index(conn)]):
                     future_min_mills.append(conn)
-                
+        
+        if not can_move:
+            score += 20
+               
         # If a piece is preventing a mill, give additional points
         for mill in mills:
             if point in mill:
@@ -519,28 +536,28 @@ black = "Player2" # min
 # board["D2"] = black
 # board["F2"] = black
 
-board["A4"] = white
-#board["G4"] = white
-board["C4"] = white
-board["B4"] = white
-#board["F2"] = white
+# board["A4"] = white
+# #board["G4"] = white
+# board["C4"] = white
+# board["B4"] = white
+# #board["F2"] = white
 
-board["D6"] = black
-board["D7"] = black
-board["D5"] = black #board["E4"] = black
+# board["D6"] = black
+# board["D7"] = black
+# board["D5"] = black #board["E4"] = black
 # print(evaluate_board(board, True, 0, 0))
 
 
 # Algorithm settings
-max_pcs = 0
-min_pcs = 0
+max_pcs = 9
+min_pcs = 9
 dept = 3
-play = False # is maximising player
+play = True # is maximising player
 critical_moves = 10
 
 print("Before: ")
 print_board(board)
-for i in range(40):
+for i in range(69):
 
     score, best_next_move = minimax(
         board, 
@@ -562,7 +579,11 @@ for i in range(40):
     whites = count_pieces(board, "Player1")
     blacks = count_pieces(board, "Player2")
     
-    if whites == 3 or blacks == 3 and critical_moves != 0:
+    if whites == 3 or blacks == 3 and max_pcs == 0 and min_pcs == 0 and critical_moves != 0:
+        if critical_moves == 10:
+            print("Critical!")
+        
+        print("Critical counter: " + str(critical_moves))
         critical_moves -= 1
     
     if not best_next_move:
@@ -579,7 +600,7 @@ for i in range(40):
             print("Black wins!")
             break
         elif blacks < whites:
-            print("Black wins!")
+            print("White wins!")
             break
         elif blacks == whites:
             print("Draw!")

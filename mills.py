@@ -86,7 +86,8 @@ def evaluate_board(board, player, max_unplaced, min_unplaced):
     piece_weight = 30
     control_weight = 10
     movement_weight = 15
-    returning_mill_weight = 25
+    returning_mill_weight = 30
+    preventing_mill_weight = 100
     
     max_arr = [key for key, value in board.items() if value == "Player1"]
     min_arr = [key for key, value in board.items() if value == "Player2"]
@@ -101,8 +102,8 @@ def evaluate_board(board, player, max_unplaced, min_unplaced):
     max_mills = count_mills(board, "Player1")
     score += mill_weight * max_mills
     
-    if max_pieces == 3 and max_unplaced == 0:
-        score += mill_weight * max_mills
+    # if max_pieces == 3 and max_unplaced == 0:
+    #     score += mill_weight * max_mills
         
     score += piece_weight * max_pieces
     
@@ -116,34 +117,44 @@ def evaluate_board(board, player, max_unplaced, min_unplaced):
             
             # If a mill is possible in the next move for the maximizing player
             if max_unplaced == 0 and max_pieces > 3 and is_mills(board, True, conn):
-                if conn not in future_max_mills:
+                if conn not in future_max_mills and any(board[neighbour] == "Player1" and is_mills(board, True, neighbour) for neighbour in connections[points.index(conn)]):
                     future_max_mills.append(conn)   
                 
         # If a piece is preventing a mill, give additional points
         for mill in mills:
             if point in mill:
                 preventing_mill = True
+                player_count = 0
+                none_count = 0
+                possible_max_mill = None
                 
                 for p in mill:
+                    if board[point] == "Player1":
+                        player_count += 1
+                    elif board[point] == None:
+                        none_count += 1
+                        possible_max_mill = p
+                        
                     if p != point:
                         if board[p] == "Player1" or board[p] is None:
                             preventing_mill = False
-                            break
-                        
+                
+                if player_count == 2 and none_count == 1 and max_unplaced == 0 and max_pieces == 3:
+                    future_max_mills.append(possible_max_mill)
+                
                 if preventing_mill:
-                    score += 25
+                    score += preventing_mill_weight
         
         # To more points the piece is connected the more it is worth    
         score += control_weight * (len(connection) - 1)
 
     min_mills = count_mills(board, "Player2")
-    if min_mills > 0:
-        print()
+    
     # Min scoring   
     score -= mill_weight * min_mills
     
-    if min_pieces == 3 and min_unplaced == 0:
-        score -= mill_weight * min_mills
+    # if min_pieces == 3 and min_unplaced == 0:
+    #     score -= mill_weight * min_mills
         
     score -= piece_weight * min_pieces
     
@@ -157,33 +168,44 @@ def evaluate_board(board, player, max_unplaced, min_unplaced):
                 
             # If a mill is possible in the next move for the minimizing player
             if min_unplaced == 0 and min_pieces > 3 and is_mills(board, False, conn):
-                if conn not in future_min_mills:
+                if conn not in future_min_mills and any(board[neighbour] == "Player2" and is_mills(board, False, neighbour) for neighbour in connections[points.index(conn)]):
                     future_min_mills.append(conn)
                 
         # If a piece is preventing a mill, give additional points
         for mill in mills:
             if point in mill:
                 preventing_mill = True
+                player_count = 0
+                none_count = 0
+                possible_min_mill = None
                 
                 for p in mill:
+                    if board[point] == "Player2":
+                        player_count += 1
+                    elif board[point] == None:
+                        none_count += 1
+                        possible_min_mill = p
+                        
                     if p != point:
                         if board[p] == "Player2" or board[p] is None:
                             preventing_mill = False
-                            break
-                        
+                
+                if player_count == 2 and none_count == 1 and min_unplaced == 0 and min_pieces == 3:
+                    future_min_mills.append(possible_min_mill)
+                   
                 if preventing_mill:
-                    score -= 50
+                    score -= preventing_mill_weight
             
         # To more points the piece is connected the more it is worth    
         score -= control_weight * (len(connection) - 1)
         
    # Add returning mill weight bonuses based on future mill possibilities
-    if not future_min_mills and future_max_mills and not player:
+    if not future_min_mills and future_max_mills:
         for max_fmill in future_max_mills:
             if all(board[c] != "Player2" and board[c] != None for c in connections[points.index(max_fmill)]):
                 score += returning_mill_weight
 
-    if not future_max_mills and future_min_mills and player:
+    if not future_max_mills and future_min_mills:
         for min_fmill in future_min_mills:
             if all(board[c] != "Player1" and board[c] != None for c in connections[points.index(min_fmill)]):
                 score -= returning_mill_weight
@@ -390,15 +412,15 @@ def minimax(board, depth, alpha, beta, maximizing_player, unplaced_of_maximizing
                         eval, _ = minimax(board, depth - 1, alpha, beta, False, unplaced_of_maximizing_player, unplaced_of_minimizing_player)
                         board[enemy] = "Player2"
                         
-                        # if eval > max_eval:
-                        #     move[5] = enemy
-                        #     max_eval = eval
-                        #     best_move = move
+                        if eval > max_eval:
+                            move[5] = enemy
+                            max_eval = eval
+                            best_move = move
                             
-                        # alpha = max(alpha, eval)
+                        alpha = max(alpha, eval)
                         
-                        # if alpha >= beta:
-                        #     break
+                        if alpha >= beta:
+                            break
 
                 if not flag_removed:
                     eval, _ = minimax(board, depth - 1, alpha, beta, False, unplaced_of_maximizing_player, unplaced_of_minimizing_player)
@@ -426,8 +448,6 @@ def minimax(board, depth, alpha, beta, maximizing_player, unplaced_of_maximizing
             make_move(board, move, unplaced_of_maximizing_player, unplaced_of_minimizing_player)
 
             if move[3]:
-                if board["A4"] == board["B4"] == board["C4"] == "Player1":
-                    print()
                 flag_removed = False
                 enemies = return_enemies(board, maximizing_player)
                 
@@ -500,14 +520,14 @@ black = "Player2" # min
 # board["F2"] = black
 
 board["A4"] = white
-board["G4"] = white
+#board["G4"] = white
 board["C4"] = white
 board["B4"] = white
-board["F2"] = white
+#board["F2"] = white
 
 board["D6"] = black
 board["D7"] = black
-board["E4"] = black
+board["D5"] = black #board["E4"] = black
 # print(evaluate_board(board, True, 0, 0))
 
 
@@ -515,9 +535,8 @@ board["E4"] = black
 max_pcs = 0
 min_pcs = 0
 dept = 3
-play = True # is maximising player
-
-
+play = False # is maximising player
+critical_moves = 10
 
 print("Before: ")
 print_board(board)
@@ -540,8 +559,31 @@ for i in range(40):
     
     play = not play
     
+    whites = count_pieces(board, "Player1")
+    blacks = count_pieces(board, "Player2")
+    
+    if whites == 3 or blacks == 3 and critical_moves != 0:
+        critical_moves -= 1
+    
     if not best_next_move:
-        print("done")
+        print(score)
+        if score == -1000:
+            print("Black wins!")
+            break
+        elif score == 1000:
+            print("White wins!")
+            break
+        
+    if critical_moves == 0:
+        if blacks > whites:
+            print("Black wins!")
+            break
+        elif blacks < whites:
+            print("Black wins!")
+            break
+        elif blacks == whites:
+            print("Draw!")
+            break
 
     print(best_next_move)
     print("After: ")

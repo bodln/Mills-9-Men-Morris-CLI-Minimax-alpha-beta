@@ -79,14 +79,14 @@ def print_board(board):
 
 def evaluate_board(board, player, max_unplaced, min_unplaced):
     if game_over(board, player, max_unplaced, min_unplaced):
-        return -1000 if player else 1000
+        return -100000 if player else 100000
     
     score = 0
-    mill_weight = 200
+    mill_weight = 300
     piece_weight = 30
     control_weight = 10
-    movement_weight = 15
-    returning_mill_weight = 30
+    movement_weight = 10
+    returning_mill_weight = 50
     preventing_mill_weight = 100
     
     max_arr = [key for key, value in board.items() if value == "Player1"]
@@ -101,6 +101,9 @@ def evaluate_board(board, player, max_unplaced, min_unplaced):
     # Max scoring
     max_mills = count_mills(board, "Player1")
     score += mill_weight * max_mills
+    
+    if max_mills == 3:
+        return 100000
     
     # if max_pieces == 3 and max_unplaced == 0:
     #     score += mill_weight * max_mills
@@ -148,7 +151,7 @@ def evaluate_board(board, player, max_unplaced, min_unplaced):
                         if board[p] == "Player1" or board[p] is None:
                             preventing_mill = False
                 
-                if player_count == 2 and none_count == 1 and max_unplaced == 0 and max_pieces == 3:
+                if player_count == 2 and none_count == 1 and ((max_unplaced == 0 and max_pieces == 3) or max_unplaced > 0):
                     future_max_mills.append(possible_max_mill)
                 
                 if preventing_mill:
@@ -158,6 +161,9 @@ def evaluate_board(board, player, max_unplaced, min_unplaced):
         score += control_weight * (len(connection) - 1)
 
     min_mills = count_mills(board, "Player2")
+    
+    if min_mills == 3:
+        return -100000
     
     # Min scoring   
     score -= mill_weight * min_mills
@@ -207,7 +213,7 @@ def evaluate_board(board, player, max_unplaced, min_unplaced):
                         if board[p] == "Player2" or board[p] is None:
                             preventing_mill = False
                 
-                if player_count == 2 and none_count == 1 and min_unplaced == 0 and min_pieces == 3:
+                if player_count == 2 and none_count == 1 and ((min_unplaced == 0 and min_pieces == 3) or min_unplaced > 0):
                     future_min_mills.append(possible_min_mill)
                    
                 if preventing_mill:
@@ -414,6 +420,7 @@ def minimax(board, depth, alpha, beta, maximizing_player, unplaced_of_maximizing
         max_eval = float('-inf')
         best_move = None
         moves = generate_moves(board, maximizing_player, unplaced_of_maximizing_player, unplaced_of_minimizing_player)
+        moves = sorted(moves, key=lambda move: move[3], reverse=True)
         
         for move in moves:
             make_move(board, move, unplaced_of_maximizing_player, unplaced_of_minimizing_player)
@@ -422,8 +429,17 @@ def minimax(board, depth, alpha, beta, maximizing_player, unplaced_of_maximizing
                 flag_removed = False
                 enemies = return_enemies(board, maximizing_player)
                 
+                min_mills = count_mills(board, "Player2")
+                min_pieces = count_pieces(board, "Player2")
+                
+                all_in_mill = False
+                
+                if unplaced_of_minimizing_player == 0:
+                    if (min_pieces == 6 and min_mills == 2) or (min_pieces == 9 and min_mills == 3) or (min_pieces == 3 and min_mills == 1):
+                        all_in_mill = True 
+                
                 for enemy in enemies:
-                    if not in_mill(board, enemy):
+                    if all_in_mill or not in_mill(board, enemy):
                         flag_removed = True
                         board[enemy] = None
                         eval, _ = minimax(board, depth - 1, alpha, beta, False, unplaced_of_maximizing_player, unplaced_of_minimizing_player)
@@ -433,11 +449,6 @@ def minimax(board, depth, alpha, beta, maximizing_player, unplaced_of_maximizing
                             move[5] = enemy
                             max_eval = eval
                             best_move = move
-                            
-                        alpha = max(alpha, eval)
-                        
-                        if alpha >= beta:
-                            break
 
                 if not flag_removed:
                     eval, _ = minimax(board, depth - 1, alpha, beta, False, unplaced_of_maximizing_player, unplaced_of_minimizing_player)
@@ -460,6 +471,7 @@ def minimax(board, depth, alpha, beta, maximizing_player, unplaced_of_maximizing
         min_eval = float('inf')
         best_move = None
         moves = generate_moves(board, maximizing_player, unplaced_of_maximizing_player, unplaced_of_minimizing_player)
+        moves = sorted(moves, key=lambda move: move[3], reverse=True)
 
         for move in moves:
             make_move(board, move, unplaced_of_maximizing_player, unplaced_of_minimizing_player)
@@ -468,8 +480,17 @@ def minimax(board, depth, alpha, beta, maximizing_player, unplaced_of_maximizing
                 flag_removed = False
                 enemies = return_enemies(board, maximizing_player)
                 
+                max_mills = count_mills(board, "Player1")
+                max_pieces = count_pieces(board, "Player1")
+                
+                all_in_mill = False
+                
+                if unplaced_of_maximizing_player == 0:
+                    if (max_pieces == 6 and max_mills == 2) or (max_pieces == 9 and max_mills == 3) or (max_pieces == 3 and max_mills == 1):
+                        all_in_mill = True 
+                
                 for enemy in enemies:
-                    if not in_mill(board, enemy):
+                    if all_in_mill or not in_mill(board, enemy):
                         flag_removed = True
                         board[enemy] = None
                         eval, _ = minimax(board, depth - 1, alpha, beta, True, unplaced_of_maximizing_player, unplaced_of_minimizing_player)
@@ -479,11 +500,6 @@ def minimax(board, depth, alpha, beta, maximizing_player, unplaced_of_maximizing
                             move[5] = enemy
                             min_eval = eval
                             best_move = move
-                            
-                        beta = min(beta, eval)
-                            
-                        if alpha >= beta:
-                            break
 
                 if not flag_removed:
                     eval, _ = minimax(board, depth - 1, alpha, beta, True, unplaced_of_maximizing_player, unplaced_of_minimizing_player)
@@ -522,41 +538,27 @@ black = "Player2" # min
 
 # Game example
 
-# board["A7"] = white
-# board["B4"] = white
-# board["A1"] = white
-# board["D3"] = white
-# board["E3"] = white
-# board["C3"] = white
+board["G7"] = white
+board["A7"] = white
+board["A4"] = white
+board["D7"] = white
+board["A1"] = white
 
-# board["G7"] = black
-# board["G1"] = black
-# board["F4"] = black
-# board["B2"] = black
-# board["D2"] = black
-# board["F2"] = black
-
-# board["A4"] = white
-# #board["G4"] = white
-# board["C4"] = white
-# board["B4"] = white
-# #board["F2"] = white
-
-# board["D6"] = black
-# board["D7"] = black
-# board["D5"] = black #board["E4"] = black
-# print(evaluate_board(board, True, 0, 0))
-
+board["B2"] = black
+board["F2"] = black
+board["D3"] = black
+board["D1"] = black
 
 # Algorithm settings
-max_pcs = 9
-min_pcs = 9
-dept = 3
-play = True # is maximising player
+max_pcs = 0
+min_pcs = 0
+dept = 4
+play = False # is maximising player
 critical_moves = 10
 
 print("Before: ")
 print_board(board)
+
 for i in range(69):
 
     score, best_next_move = minimax(
@@ -579,7 +581,7 @@ for i in range(69):
     whites = count_pieces(board, "Player1")
     blacks = count_pieces(board, "Player2")
     
-    if whites == 3 or blacks == 3 and max_pcs == 0 and min_pcs == 0 and critical_moves != 0:
+    if (whites == 3 or blacks == 3) and max_pcs == 0 and min_pcs == 0 and critical_moves != 0:
         if critical_moves == 10:
             print("Critical!")
         
@@ -588,10 +590,10 @@ for i in range(69):
     
     if not best_next_move:
         print(score)
-        if score == -1000:
+        if score == -100000:
             print("Black wins!")
             break
-        elif score == 1000:
+        elif score == 100000:
             print("White wins!")
             break
         
@@ -606,7 +608,10 @@ for i in range(69):
             print("Draw!")
             break
 
+    print(score)
     print(best_next_move)
     print("After: ")
     make_move(board, best_next_move, max_pcs, min_pcs)
     print_board(board)
+    
+
